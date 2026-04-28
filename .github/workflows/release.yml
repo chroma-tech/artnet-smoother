@@ -69,17 +69,7 @@ jobs:
         run: cp "target/release/${{ matrix.binary }}" "${{ matrix.artifact }}"
 
       - name: Upload release asset
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
-          ARTIFACT: ${{ matrix.artifact }}
-        run: gh release upload "$env:TAG_NAME" "$env:ARTIFACT" --clobber
-        if: runner.os == 'Windows'
-
-      - name: Upload release asset
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
-          ARTIFACT: ${{ matrix.artifact }}
-        run: gh release upload "$TAG_NAME" "$ARTIFACT" --clobber
-        if: runner.os != 'Windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: ${{ matrix.artifact }}
