@@ -26,7 +26,7 @@ jobs:
             artifact: artnet-smoother-windows-x86_64.exe
             binary: artnet-smoother.exe
           - name: macOS x86_64
-            os: macos-13
+            os: macos-15-intel
             artifact: artnet-smoother-macos-x86_64
             binary: artnet-smoother
           - name: macOS arm64
