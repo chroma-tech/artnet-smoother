@@ -1,0 +1,59 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            os: ubuntu-latest
+            artifact: artnet-smoother-linux-x86_64
+            binary: artnet-smoother
+          - name: Windows x86_64
+            os: windows-latest
+            artifact: artnet-smoother-windows-x86_64.exe
+            binary: artnet-smoother.exe
+          - name: macOS x86_64
+            os: macos-13
+            artifact: artnet-smoother-macos-x86_64
+            binary: artnet-smoother
+          - name: macOS arm64
+            os: macos-14
+            artifact: artnet-smoother-macos-arm64
+            binary: artnet-smoother
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Prepare artifact
+        shell: bash
+        run: cp "target/release/${{ matrix.binary }}" "${{ matrix.artifact }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error

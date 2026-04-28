@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Create or update release PR
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build-release:
+    name: ${{ matrix.name }}
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            os: ubuntu-latest
+            artifact: artnet-smoother-linux-x86_64
+            binary: artnet-smoother
+          - name: Windows x86_64
+            os: windows-latest
+            artifact: artnet-smoother-windows-x86_64.exe
+            binary: artnet-smoother.exe
+          - name: macOS x86_64
+            os: macos-13
+            artifact: artnet-smoother-macos-x86_64
+            binary: artnet-smoother
+          - name: macOS arm64
+            os: macos-14
+            artifact: artnet-smoother-macos-arm64
+            binary: artnet-smoother
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Prepare artifact
+        shell: bash
+        run: cp "target/release/${{ matrix.binary }}" "${{ matrix.artifact }}"
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+          ARTIFACT: ${{ matrix.artifact }}
+        run: gh release upload "$env:TAG_NAME" "$env:ARTIFACT" --clobber
+        if: runner.os == 'Windows'
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+          ARTIFACT: ${{ matrix.artifact }}
+        run: gh release upload "$TAG_NAME" "$ARTIFACT" --clobber
+        if: runner.os != 'Windows'
