@@ -239,7 +239,7 @@ fn run_sync_delay_engine(
             Event::Dmx(packet) => current_frame.push(packet),
             Event::Sync(sync) => {
                 if let Some(previous_sync) = last_sync_at {
-                    interval = smooth_interval(
+                    interval = source_interval_or_fallback(
                         interval,
                         sync.received_at.saturating_duration_since(previous_sync),
                     );
@@ -422,12 +422,12 @@ fn frame_interval(fps: f64) -> Duration {
     Duration::from_secs_f64(1.0 / fps)
 }
 
-fn smooth_interval(previous: Duration, observed: Duration) -> Duration {
+fn source_interval_or_fallback(fallback: Duration, observed: Duration) -> Duration {
     if observed < Duration::from_millis(2) || observed > Duration::from_secs(1) {
-        return previous;
+        return fallback;
     }
 
-    previous.mul_f64(0.8) + observed.mul_f64(0.2)
+    observed
 }
 
 fn duration_to_milli_hz(duration: Duration) -> u64 {
@@ -488,12 +488,23 @@ mod tests {
     }
 
     #[test]
-    fn smooth_interval_filters_unreasonable_observations() {
-        let previous = Duration::from_millis(25);
+    fn source_interval_uses_observed_sync_timing() {
         assert_eq!(
-            smooth_interval(previous, Duration::from_micros(100)),
-            previous
+            source_interval_or_fallback(Duration::from_millis(25), Duration::from_millis(50)),
+            Duration::from_millis(50)
         );
-        assert_eq!(smooth_interval(previous, Duration::from_secs(2)), previous);
+    }
+
+    #[test]
+    fn source_interval_filters_unreasonable_observations() {
+        let fallback = Duration::from_millis(25);
+        assert_eq!(
+            source_interval_or_fallback(fallback, Duration::from_micros(100)),
+            fallback
+        );
+        assert_eq!(
+            source_interval_or_fallback(fallback, Duration::from_secs(2)),
+            fallback
+        );
     }
 }
